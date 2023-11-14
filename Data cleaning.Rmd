@@ -1,0 +1,117 @@
+---
+title: "Ecuador Store Sales Data Cleaning"
+author: "Yifei Xue"
+date: '2023-11-14'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp)
+library(fpp2)
+library(tidyverse)
+library(knitr)
+library(tidyr)
+library(forecast)
+library(maps)
+library(zoo)
+
+```
+
+### working on the data we retrived from the website
+
+```{r}
+#read data
+raw_train_data <- read.csv(file = "train.csv")
+raw_oil <- read.csv(file = "oil.csv")
+```
+
+### select store with number 11, 19, 27, 35, 46 
+```{r}
+raw_test_0 <- raw_train_data[raw_train_data$store_nbr == 11 
+                      | raw_train_data$store_nbr == 19
+                      | raw_train_data$store_nbr == 27
+                      | raw_train_data$store_nbr == 35
+                      | raw_train_data$store_nbr == 46,]
+
+# store num can be changed here
+
+
+raw_test_1 <-  raw_test_0[raw_test_0$family == 'DELI'
+                        | raw_test_0$family == 'GROCERY I'
+                        | raw_test_0$family == 'MEATS',]
+
+# 3 families are select here: DELI, GROCERY I, MEATS
+
+
+
+
+```
+
+
+
+```{r}
+# problem, some days have sale but no oil price, might take last available oil price to fill NA?
+raw_merge_oil <- merge(raw_test_1, raw_oil, by = "date", 
+                  all.x = TRUE) 
+
+raw_merge_oil$date <- as.POSIXct(raw_merge_oil$date, format = "%Y-%m-%d")
+
+
+raw_merge_oil_dropna <-filter(raw_merge_oil, sales > 0)
+# 75 obs is dropped here due to zero sales
+
+raw_merge_oil_dropna <- raw_merge_oil_dropna[
+  order( raw_merge_oil_dropna[,1], raw_merge_oil_dropna[,3] ),
+]
+# reordering
+
+
+raw_merge_oil_dropna <- subset(raw_merge_oil_dropna, select = -c(id) )
+
+colnames(raw_merge_oil_dropna)[6] ="oil_price"
+
+```
+
+
+```{r}
+raw_merge_oil_dropna$date <- as.Date(raw_merge_oil_dropna$date)
+raw_merge_oil_dropna$store_nbr <- as.factor(raw_merge_oil_dropna$store_nbr)
+raw_merge_oil_dropna$family <- as.factor(raw_merge_oil_dropna$family)
+raw_merge_oil_dropna$sales <- as.double(raw_merge_oil_dropna$sales)
+raw_merge_oil_dropna$onpromotion <- as.integer(raw_merge_oil_dropna$onpromotion)
+raw_merge_oil_dropna$oil_price <- as.double(raw_merge_oil_dropna$oil_price)
+
+class(raw_merge_oil_dropna$store_nbr)
+#change store_nbr to factor
+```
+
+
+### trying to deal with empty oil price
+```{r}
+test <- raw_merge_oil_dropna %>% fill(oil_price)
+# Fill empty oil price with value of last non-empty oil price
+
+```
+
+
+
+```{r}
+write.csv(test, "store_sales_cleaned_combined.csv", row.names=FALSE)
+```
+
+
+```{r}
+
+```
+
+
+```{r}
+
+```
+
+
+
+
+
+
