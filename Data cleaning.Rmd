@@ -117,10 +117,11 @@ write.csv(test0, "reform_test.csv", row.names=FALSE)
 
 
 ```{r}
-test_ts <- ts(test1[,2], start = c(2013),frequency = 365)
+test_ts <- ts(train1[,2], start = c(2013),frequency = 365)
 
 autoplot(test_ts)
 
+test_ts %>% ggtsdisplay()
 
 ```
 
