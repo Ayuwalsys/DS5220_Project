@@ -24,89 +24,103 @@ library(zoo)
 #read data
 raw_train_data <- read.csv(file = "train.csv")
 raw_oil <- read.csv(file = "oil.csv")
+raw_test <- read.csv(file = "test.csv")
 ```
 
 ### select store with number 11, 19, 27, 35, 46 
 ```{r}
-raw_test_0 <- raw_train_data[raw_train_data$store_nbr == 11 
-                      | raw_train_data$store_nbr == 19
-                      | raw_train_data$store_nbr == 27
-                      | raw_train_data$store_nbr == 35
-                      | raw_train_data$store_nbr == 46,]
+raw_train_0 <- raw_train_data
 
-# store num can be changed here
-
-
-raw_test_1 <-  raw_test_0[raw_test_0$family == 'DELI'
-                        | raw_test_0$family == 'GROCERY I'
-                        | raw_test_0$family == 'MEATS',]
-
-# 3 families are select here: DELI, GROCERY I, MEATS
-
-
+raw_train_1 <- raw_train_0 %>% 
+  group_by(date) %>% 
+  summarise(sales = sum(sales),onpromotion = sum(onpromotion ))
 
 
 ```
+
 
 
 
 ```{r}
 # problem, some days have sale but no oil price, might take last available oil price to fill NA?
-raw_merge_oil <- merge(raw_test_1, raw_oil, by = "date", 
+raw_merge_oil <- merge(raw_train_1, raw_oil, by = "date", 
                   all.x = TRUE) 
 
 raw_merge_oil$date <- as.POSIXct(raw_merge_oil$date, format = "%Y-%m-%d")
 
 
 raw_merge_oil_dropna <-filter(raw_merge_oil, sales > 0)
-# 75 obs is dropped here due to zero sales
+# no zero sales date found, no drop needed
 
 raw_merge_oil_dropna <- raw_merge_oil_dropna[
-  order( raw_merge_oil_dropna[,1], raw_merge_oil_dropna[,3] ),
+  order( raw_merge_oil_dropna[,1]),
 ]
 # reordering
 
 
-raw_merge_oil_dropna <- subset(raw_merge_oil_dropna, select = -c(id) )
 
-colnames(raw_merge_oil_dropna)[6] ="oil_price"
+
+colnames(raw_merge_oil_dropna)[4] ="oil_price"
 
 ```
 
 
 ```{r}
 raw_merge_oil_dropna$date <- as.Date(raw_merge_oil_dropna$date)
-raw_merge_oil_dropna$store_nbr <- as.factor(raw_merge_oil_dropna$store_nbr)
-raw_merge_oil_dropna$family <- as.factor(raw_merge_oil_dropna$family)
 raw_merge_oil_dropna$sales <- as.double(raw_merge_oil_dropna$sales)
 raw_merge_oil_dropna$onpromotion <- as.integer(raw_merge_oil_dropna$onpromotion)
 raw_merge_oil_dropna$oil_price <- as.double(raw_merge_oil_dropna$oil_price)
-
-class(raw_merge_oil_dropna$store_nbr)
-#change store_nbr to factor
 ```
 
 
 ### trying to deal with empty oil price
 ```{r}
-test <- raw_merge_oil_dropna %>% fill(oil_price)
+train0 <- raw_merge_oil_dropna %>% fill(oil_price)
 # Fill empty oil price with value of last non-empty oil price
+# Note that oil price of the first day(2013-01-01) is missing, using the second day to fill it 
+train1 <- train0 %>% fill(oil_price, .direction = 'up')
+
 
 ```
 
 
-
+# Output the cleaned train file
 ```{r}
-write.csv(test, "store_sales_cleaned_combined.csv", row.names=FALSE)
+write.csv(train1, "store_sales_cleaned_combined.csv", row.names=FALSE)
+```
+
+
+# Reformat the test file
+```{r}
+raw_test_0 <- raw_test
+
+raw_test_1 <- raw_test_0 %>% 
+  group_by(date) %>% 
+  summarise(onpromotion = sum(onpromotion ))
+
+raw_test_merge_oil <- merge(raw_test_1, raw_oil, by = "date", 
+                  all.x = TRUE) 
+
+colnames(raw_test_merge_oil)[3] ="oil_price"
+
+test0 <- raw_test_merge_oil %>% fill(oil_price)
+
+
+```
+
+
+# Output the cleaned test file
+```{r}
+###!! NOTE that no sales found in the test file
+write.csv(test0, "reform_test.csv", row.names=FALSE)
 ```
 
 
 ```{r}
+test_ts <- ts(test1[,2], start = c(2013),frequency = 365)
 
-```
+autoplot(test_ts)
 
-
-```{r}
 
 ```
 
