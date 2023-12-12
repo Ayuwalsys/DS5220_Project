@@ -1,0 +1,247 @@
+---
+title: "Ecuador Store Sales Arima model building"
+author: "Yifei Xue"
+date: '2023-12-10'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fpp)
+library(fpp2)
+library(tidyverse)
+library(knitr)
+library(tidyr)
+library(forecast)
+library(maps)
+library(zoo)
+library(ggplot2)
+```
+
+### working on the data we retrived from the website
+
+```{r}
+#read data
+bfsplit <- read.csv(file = "store_sales_cleaned_combined.csv")
+
+```
+
+
+```{r}
+
+sale_ts <- ts(bfsplit[c(1:1669),2], start = c(2013),frequency = 365)
+# And we are using next 15ish obs as the testing set to see the model accuracy
+sale_ts_test <- ts(bfsplit[c(1670:1684),2],start=c(2017,212),frequency = 365)
+
+
+split_train <- bfsplit[1:1669,]
+split_test <- bfsplit[1670:1684,]
+```
+
+
+
+
+```{r}
+autoplot(sale_ts)
+
+sale_ts %>% ggtsdisplay()
+
+
+```
+
+
+
+
+```{r}
+# Based on the Dickey-Fuller test, we could see that the p-value for the original time seris = 0.01 < 0.05. This indicates that the orignial time seris is stationary and no modification on the process is needed
+
+adf.test(sale_ts)
+
+```
+
+
+
+```{r}
+fit <- auto.arima(sale_ts)
+
+fit
+```
+
+
+
+```{r}
+sale_ts %>%
+  Arima(order=c(5,1,1)) %>%
+  residuals() %>% ggtsdisplay()
+
+
+```
+
+
+
+```{r}
+autoplot(sale_ts) +
+ autolayer(fitted(fit), series = "Fitted Values") +
+  autolayer(forecast(fit, h = 15), series = "Forecast") +
+  autolayer(sale_ts_test, series = "Test Data") +
+  labs(title = "ARIMA Model: Fitted Values and Forecasts",
+       x = "Time",
+       y = "Sales") +
+  theme_minimal()
+
+
+
+autoplot(sale_ts) +
+  autolayer(fitted(fit), series = "Fitted Values") +
+  autolayer(forecast(fit, h = 15), series = "Forecast") +
+  autolayer(sale_ts_test, series = "Test Data") +
+  labs(title = "ARIMA Model: Fitted Values and Forecasts",
+       x = "Time",
+       y = "Sales") +
+  theme_minimal() +
+  xlim(max(index(sale_ts)) - 0.15, max(index(sale_ts))+0.05)  # Focus on forecasted
+
+```
+
+
+
+```{r}
+forecast_values <- forecast(fit, h=15)
+
+accuracy(forecast_values, split_test$sales)
+
+
+rmsle <- sqrt(mean((log1p(forecast_values$mean) - log1p(split_test$sales))^2))
+
+rmsle
+
+
+quantile_loss <- function(y_true, y_pred, tau) {
+  residuals <- y_true - y_pred
+  loss <- ifelse(residuals >= 0, tau * residuals, (tau - 1) * residuals)
+  return(sum(loss))
+}
+
+loss <- quantile_loss(forecast_values$mean, split_test$sales, 0.5)
+
+loss
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+fitx <-  auto.arima(sale_ts, xreg = split_train$oil_price)
+fitx
+```
+
+
+
+
+```{r}
+autoplot(sale_ts) +
+ autolayer(fitted(fitx), series = "Fitted Values") +
+  autolayer(forecast(fitx,xreg = split_test$oil_price, h=15), series = "Forecast") +
+  autolayer(sale_ts_test, series = "Test Data") +
+  labs(title = "ARIMAX Model: Fitted Values and Forecasts",
+       x = "Time",
+       y = "Sales") +
+  theme_minimal()
+
+
+
+autoplot(sale_ts) +
+  autolayer(fitted(fitx), series = "Fitted Values") +
+  autolayer(forecast(fitx,xreg = split_test$oil_price, h=15), series = "Forecast") +
+  autolayer(sale_ts_test, series = "Test Data") +
+  labs(title = "ARIMAX Model: Fitted Values and Forecasts",
+       x = "Time",
+       y = "Sales") +
+  theme_minimal() +
+  xlim(max(index(sale_ts)) - 0.15, max(index(sale_ts))+0.05)  
+# Focus on forecasted
+```
+
+
+
+```{r}
+x_forecast_values <- forecast(fitx,xreg = split_test$oil_price, h=15)
+
+accuracy(x_forecast_values, split_test$sales)
+
+rmsleX <- sqrt(mean((log1p(x_forecast_values$mean) - log1p(split_test$sales))^2))
+
+rmsleX
+
+lossX <- quantile_loss(x_forecast_values$mean, split_test$sales, 0.5)
+
+lossX
+
+```
+
+
+
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
+
+```{r}
+
+
+```
+
+
